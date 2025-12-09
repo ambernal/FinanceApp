@@ -24,6 +24,7 @@ La aplicación opera completamente en el navegador (Single File Web App) y utili
 
 ### Datos y Persistencia
 *   **Almacenamiento Local**: Todos los datos de transacciones, categorías y la clave API se guardan en el localStorage del navegador.
+*   **Master CSV (Persistencia Local)**: Conexión directa a un archivo CSV local (`gastos_master.csv`) mediante la File System Access API. Permite guardar los gastos permanentemente en tu disco duro, sincronizando los datos entre sesiones.
 *   **Exportación de CSV**: Permite descargar el historial completo de gastos en un archivo CSV.
 
 ## 🛠️ Estructura de la Aplicación (Pestañas)
@@ -49,7 +50,8 @@ La aplicación está organizada en cuatro pestañas principales:
 
 4.  **Configuración**
     *   Permite al usuario introducir y guardar su Google Gemini API Key.
-    *   Incluye una opción para borrar todos los datos de la aplicación guardados en el navegador.
+*   **Conexión Master CSV**: Botón para seleccionar y conectar un archivo CSV local para la persistencia de datos.
+*   Incluye una opción para borrar todos los datos de la aplicación guardados en el navegador.
 
 ## ⚙️ Tecnologías y Dependencias
 La aplicación se implementa en un único archivo HTML y utiliza las siguientes librerías:

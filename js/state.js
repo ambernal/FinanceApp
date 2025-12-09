@@ -8,8 +8,9 @@ let appData = {
     uploadedFileType: null, // 'pdf' or 'csv'
     fileHandle: null, // File System Access API handle
     masterCSVData: [] // Cache of master CSV content
+};
 
 let dashboardChartInstance = null;
-    let trendsChartInstance = null; // New chart instance for trends
-    let currentChartMode = 'global'; // 'global' or 'monthly'
-    let tempTransactions =[]; // Moved from logic to state for global access
+let trendsChartInstance = null; // New chart instance for trends
+let currentChartMode = 'global'; // 'global' or 'monthly'
+let tempTransactions = []; // Moved from logic to state for global access

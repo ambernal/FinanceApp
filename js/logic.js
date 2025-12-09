@@ -328,8 +328,30 @@ async function saveTransactions() {
         return;
     }
 
+    // Filter duplicates
+    const uniqueTransactions = tempTransactions.filter(newTx => {
+        const isDup = appData.transactions.some(existingTx =>
+            existingTx.date === newTx.date &&
+            Math.abs(existingTx.amount - newTx.amount) < 0.01 &&
+            existingTx.concept.trim().toLowerCase() === newTx.concept.trim().toLowerCase()
+        );
+        return !isDup;
+    });
+
+    const duplicatesCount = tempTransactions.length - uniqueTransactions.length;
+
+    if (uniqueTransactions.length === 0) {
+        showNotification(`No se guardaron datos: ${duplicatesCount} duplicados detectados.`, "warning");
+        // Clear temp table anyway? Or let user see? 
+        // Better to clear to avoid confusion, or maybe ask? 
+        // For now, let's clear and inform.
+        tempTransactions = [];
+        document.getElementById('transaction-table-body').innerHTML = '<tr id="empty-state"><td colspan="6" class="p-10 text-center text-orange-500 font-medium">Todos los gastos eran duplicados y no se han añadido.</td></tr>';
+        return;
+    }
+
     // 1. Update Internal State
-    appData.transactions = [...appData.transactions, ...tempTransactions];
+    appData.transactions = [...appData.transactions, ...uniqueTransactions];
     appData.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
     saveToStorage();
 
@@ -355,7 +377,9 @@ async function saveTransactions() {
             await writable.write(csvContent);
             await writable.close();
 
-            showNotification("¡Guardado en Master CSV y Dashboard!", "success");
+            let msg = "¡Guardado en Master CSV y Dashboard!";
+            if (duplicatesCount > 0) msg += ` (${duplicatesCount} duplicados omitidos)`;
+            showNotification(msg, "success");
 
         } catch (error) {
             console.error("Error writing to Master CSV:", error);
@@ -364,7 +388,9 @@ async function saveTransactions() {
             setLoading(false);
         }
     } else {
-        showNotification("Gastos guardados en el navegador (No Master CSV).");
+        let msg = "Gastos guardados en el navegador.";
+        if (duplicatesCount > 0) msg += ` (${duplicatesCount} duplicados omitidos)`;
+        showNotification(msg);
     }
 
     // 3. Reset UI
