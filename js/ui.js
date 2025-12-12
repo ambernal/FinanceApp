@@ -113,6 +113,39 @@ function updateDashboard() {
     document.getElementById('total-expense').innerText = total.toFixed(2) + ' €';
     document.getElementById('top-category').innerText = topCat;
 
+    // Update Date Range Header
+    const rangeEl = document.getElementById('dashboard-date-range');
+    if (currentChartMode === 'monthly') {
+        const selectedMonth = monthSelector.value;
+        if (selectedMonth) {
+            // Format YYYY-MM to readable (e.g., "Enero 2023")
+            const [year, month] = selectedMonth.split('-');
+            const dateObj = new Date(year, month - 1);
+            const monthName = dateObj.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            rangeEl.innerText = `(${monthName.charAt(0).toUpperCase() + monthName.slice(1)})`;
+        } else {
+            rangeEl.innerText = '';
+        }
+    } else {
+        // Global Mode: Find min and max date
+        if (transactions.length > 0) {
+            const dates = transactions.map(t => t.date).sort();
+            const minDate = new Date(dates[0]);
+            const maxDate = new Date(dates[dates.length - 1]);
+
+            const minStr = minDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+            const maxStr = maxDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+
+            if (minStr === maxStr) {
+                rangeEl.innerText = `(${minStr.charAt(0).toUpperCase() + minStr.slice(1)})`;
+            } else {
+                rangeEl.innerText = `(${minStr.charAt(0).toUpperCase() + minStr.slice(1)} - ${maxStr.charAt(0).toUpperCase() + maxStr.slice(1)})`;
+            }
+        } else {
+            rangeEl.innerText = '';
+        }
+    }
+
     // Update Top Expenses List
     const sortedExpenses = [...filteredData].sort((a, b) => b.amount - a.amount).slice(0, 10);
     const listContainer = document.getElementById('top-expenses-list');

@@ -86,7 +86,10 @@
         <!-- VISTA: DASHBOARD -->
         <div id="dashboard" class="tab-content active container mx-auto max-w-6xl">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-700">Resumen Financiero</h2>
+                <h2 class="text-2xl font-bold text-slate-700">
+                    Resumen Financiero <span id="dashboard-date-range"
+                        class="text-lg font-normal text-slate-500 ml-2"></span>
+                </h2>
                 <div class="flex gap-2 bg-white p-1 rounded-lg shadow border border-slate-200">
                     <button onclick="setChartMode('global')" id="btn-global"
                         class="px-4 py-1 rounded-md text-sm font-medium transition bg-blue-100 text-blue-700">Global</button>
@@ -203,7 +206,7 @@
         </div>
 
         <!-- VISTA: IMPORTAR / GASTOS -->
-        <div id="import" class="tab-content container mx-auto max-w-5xl">
+        <div id="import" class="tab-content container mx-auto max-w-full px-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
                 <!-- Panel Izquierdo: Input -->
