@@ -245,11 +245,14 @@ async function processWithGemini() {
     }
 }
 
-async function connectMasterCSV() {
+async function connectMasterCSV(targetUser) {
     if (!('showOpenFilePicker' in window)) {
         showNotification("Tu navegador no soporta esta función. Usa Chrome, Edge u Opera.", "error");
         return;
     }
+
+    // Default to current user if not specified (though UI always specifies it now)
+    const user = targetUser || appData.currentUser;
 
     try {
         const [handle] = await window.showOpenFilePicker({
@@ -260,7 +263,13 @@ async function connectMasterCSV() {
             multiple: false
         });
 
-        appData.fileHandle = handle;
+        // Store handle in the specific user's slot
+        appData.users[user].fileHandle = handle;
+
+        // If connecting for the CURRENT user, also update the active fileHandle
+        if (user === appData.currentUser) {
+            appData.fileHandle = handle;
+        }
 
         // Read the file immediately to load data
         const file = await handle.getFile();
@@ -268,11 +277,20 @@ async function connectMasterCSV() {
 
         if (text.trim()) {
             // Parse existing CSV data
-            processMasterCSV(text);
+            const transactions = parseMasterCSV(text); // Refactored parsing logic
+
+            // Update user state
+            appData.users[user].transactions = transactions;
+
+            // If current user, update active transactions and UI
+            if (user === appData.currentUser) {
+                appData.transactions = transactions;
+                updateDashboard();
+            }
         }
 
-        updateMasterCSVStatus(file.name);
-        showNotification(`Conectado a ${file.name}`);
+        updateMasterCSVStatus(file.name, user);
+        showNotification(`Conectado a ${file.name} (${user === 'user1' ? 'User 1' : 'User 2'})`);
 
     } catch (error) {
         if (error.name !== 'AbortError') {
@@ -282,25 +300,19 @@ async function connectMasterCSV() {
     }
 }
 
-function processMasterCSV(text) {
+// Extracted parsing logic for reuse
+function parseMasterCSV(text) {
     try {
         const lines = text.trim().split('\n');
-        if (lines.length < 2) return; // Only header or empty
-
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        // Basic mapping (similar to processCSVData but assuming our format)
-        // Expected: Fecha, Concepto, Cantidad, Categoria, Descripcion
+        if (lines.length < 2) return [];
 
         const transactions = [];
         for (let i = 1; i < lines.length; i++) {
-            // Simple split by comma (NOTE: This is fragile for complex CSVs with quoted commas, 
-            // but matches our simple generator. For robustness, we should use the regex split used in processCSVData)
             const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-
             if (values.length < 5) continue;
 
             transactions.push({
-                id: Date.now() + Math.random(), // Generate new IDs for internal use
+                id: Date.now() + Math.random(),
                 date: values[0].trim(),
                 concept: values[1].replace(/"/g, '').trim(),
                 amount: parseFloat(values[2]),
@@ -308,18 +320,21 @@ function processMasterCSV(text) {
                 description: values[4].replace(/"/g, '').trim()
             });
         }
-
-        appData.transactions = transactions;
-        appData.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        saveToStorage(); // Sync with local storage
-        updateDashboard();
-        showNotification(`Se han cargado ${transactions.length} gastos del Master CSV.`);
-
+        transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        return transactions;
     } catch (e) {
-        console.error("Error parsing Master CSV", e);
-        showNotification("El archivo no tiene el formato correcto.", "warning");
+        console.error("Error parsing CSV", e);
+        return [];
     }
+}
+
+function processMasterCSV(text) {
+    // Legacy wrapper if needed, or just redirect
+    const transactions = parseMasterCSV(text);
+    appData.transactions = transactions;
+    saveToStorage();
+    updateDashboard();
+    showNotification(`Se han cargado ${transactions.length} gastos del Master CSV.`);
 }
 
 async function saveTransactions() {

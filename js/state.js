@@ -1,13 +1,27 @@
 // --- ESTADO DE LA APP ---
 let appData = {
-    transactions: [], // { id, date, concept, amount, category, description }
-    // ADDED ING AND Ahorro HERE
+    currentUser: 'user1', // 'user1' or 'user2'
+    users: {
+        user1: { transactions: [], fileHandle: null, masterCSVData: [] },
+        user2: { transactions: [], fileHandle: null, masterCSVData: [] }
+    },
+    // Active Working Set (synced with users[currentUser])
+    transactions: [],
+    fileHandle: null,
+    masterCSVData: [],
+
+    // Global Settings
     categories: ['Comida', 'Ocio', 'Deporte', 'Supermercado', 'Hijos', 'Ropa', 'Transporte', 'Seguros', 'Gas', 'Luz', 'Agua', 'Casa', 'Suscripciones', 'Salud', 'ING', 'Ahorro', 'Otros'],
     apiKey: '',
+
+    // Transient
     extractedText: '',
     uploadedFileType: null, // 'pdf' or 'csv'
-    fileHandle: null, // File System Access API handle
-    masterCSVData: [] // Cache of master CSV content
+
+    // Comparison State
+    comparisonFilter: {
+        categories: [] // Selected categories for comparison
+    }
 };
 
 let dashboardChartInstance = null;

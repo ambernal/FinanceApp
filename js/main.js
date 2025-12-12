@@ -2,6 +2,7 @@
 window.onload = function () {
     loadFromStorage();
     renderCategories();
+    renderUserSwitcher(); // Initialize user switcher UI
     updateDashboard();
     populateTrendCategorySelector(); // Initialize the trends selector
 
@@ -10,7 +11,8 @@ window.onload = function () {
 
     // Check API Key
     if (!appData.apiKey) {
-        showNotification('Por favor, configura tu Gemini API Key en Configuración', 'warning');
+        const warningBanner = document.getElementById('api-key-warning');
+        if (warningBanner) warningBanner.classList.remove('hidden');
         document.getElementById('nav-settings').classList.add('text-red-500', 'font-bold');
     }
 };

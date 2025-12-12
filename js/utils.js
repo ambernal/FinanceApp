@@ -1,25 +1,62 @@
 // --- GESTIÓN DE DATOS (LOCALSTORAGE) ---
 function saveToStorage() {
-    localStorage.setItem('financeApp_data', JSON.stringify(appData));
+    // Sync active working set to the current user's storage slot before saving
+    if (appData.currentUser && appData.users[appData.currentUser]) {
+        appData.users[appData.currentUser].transactions = appData.transactions;
+    }
+
+    // Create a copy to save, excluding non-serializable items like fileHandle
+    const dataToSave = { ...appData };
+    dataToSave.fileHandle = null;
+    dataToSave.users.user1.fileHandle = null;
+    dataToSave.users.user2.fileHandle = null;
+
+    localStorage.setItem('financeApp_data', JSON.stringify(dataToSave));
 }
 
 function loadFromStorage() {
     const stored = localStorage.getItem('financeApp_data');
     if (stored) {
         const parsed = JSON.parse(stored);
-        // Ensure the loaded categories include the new defaults if they didn't exist before
-        const defaultCategories = ['Comida', 'Ocio', 'Deporte', 'Supermercado', 'Hijos', 'Ropa', 'Transporte', 'Seguros', 'Gas', 'Luz', 'Agua', 'Casa', 'Suscripciones', 'Salud', 'ING', 'Ahorro', 'Otros'];
 
-        let combinedCategories = defaultCategories;
-        if (parsed.categories) {
-            // Filter out duplicates and combine
-            const existingCategories = new Set(parsed.categories);
+        // MIGRATION LOGIC: Check if it's the old format (no 'users' property)
+        if (!parsed.users) {
+            console.log("Migrating data to Multi-User format...");
+            // Old format had 'transactions' at top level. Move them to user1.
+            const oldTransactions = parsed.transactions || [];
+
+            appData.users.user1.transactions = oldTransactions;
+            appData.transactions = oldTransactions; // Set active set
+
+            // Preserve other globals
+            if (parsed.categories) appData.categories = parsed.categories;
+            if (parsed.apiKey) appData.apiKey = parsed.apiKey;
+
+            // Save immediately in new format
+            saveToStorage();
+        } else {
+            // New format: Load normally
+            appData = { ...appData, ...parsed };
+
+            // Ensure categories are merged correctly (in case of updates)
+            const defaultCategories = ['Comida', 'Ocio', 'Deporte', 'Supermercado', 'Hijos', 'Ropa', 'Transporte', 'Seguros', 'Gas', 'Luz', 'Agua', 'Casa', 'Suscripciones', 'Salud', 'ING', 'Ahorro', 'Otros'];
+            const existingCategories = new Set(appData.categories);
             defaultCategories.forEach(cat => existingCategories.add(cat));
-            combinedCategories = Array.from(existingCategories);
+            appData.categories = Array.from(existingCategories);
+
+            // Restore active working set based on currentUser
+            const current = appData.currentUser || 'user1';
+            appData.transactions = appData.users[current].transactions || [];
+
+            // Initialize comparison filter if empty (default to all)
+            if (!appData.comparisonFilter) {
+                appData.comparisonFilter = { categories: [...appData.categories] };
+            } else if (appData.comparisonFilter.categories.length === 0) {
+                appData.comparisonFilter.categories = [...appData.categories];
+            }
+            // Note: fileHandle cannot be restored from localStorage
         }
 
-        // Merge appData, ensuring categories are handled correctly
-        appData = { ...appData, ...parsed, categories: combinedCategories };
         document.getElementById('api-key').value = appData.apiKey;
     }
 }

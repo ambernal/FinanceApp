@@ -18,6 +18,91 @@ function switchTab(tabId) {
 
     if (tabId === 'dashboard') updateDashboard();
     if (tabId === 'trends') renderTrendsChart(); // Render trends when entering the tab
+    if (tabId === 'comparison') renderComparison();
+}
+
+function renderComparison() {
+    // 0. Render Filters (if needed)
+    renderComparisonFilters();
+
+    // 1. Filter Data
+    const selectedCategories = new Set(appData.comparisonFilter.categories);
+
+    const filterFn = (t) => selectedCategories.has(t.category);
+
+    const user1Data = appData.users.user1.transactions.filter(filterFn);
+    const user2Data = appData.users.user2.transactions.filter(filterFn);
+
+    // 2. Calculate Totals
+    const total1 = user1Data.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const total2 = user2Data.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const diff = total1 - total2;
+
+    // 3. Update UI Cards
+    document.getElementById('comp-total-user1').innerText = total1.toFixed(2) + ' €';
+    document.getElementById('comp-total-user2').innerText = total2.toFixed(2) + ' €';
+
+    const diffEl = document.getElementById('comp-diff');
+    const diffTextEl = document.getElementById('comp-diff-text');
+
+    diffEl.innerText = Math.abs(diff).toFixed(2) + ' €';
+
+    if (diff > 0) {
+        diffEl.className = "text-2xl font-bold text-blue-600 mt-2";
+        diffTextEl.innerText = "User 1 paga más";
+    } else if (diff < 0) {
+        diffEl.className = "text-2xl font-bold text-purple-600 mt-2";
+        diffTextEl.innerText = "User 2 paga más";
+    } else {
+        diffEl.className = "text-2xl font-bold text-slate-800 mt-2";
+        diffTextEl.innerText = "Gastos iguales";
+    }
+
+    // 4. Render Chart
+    renderComparisonChart(user1Data, user2Data, appData.comparisonFilter.categories);
+}
+
+function renderComparisonFilters() {
+    const container = document.getElementById('comparison-category-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const allCategories = appData.categories;
+    const selected = new Set(appData.comparisonFilter.categories);
+
+    allCategories.forEach(cat => {
+        const isChecked = selected.has(cat);
+        const div = document.createElement('div');
+        div.className = "flex items-center gap-2";
+        div.innerHTML = `
+            <input type="checkbox" id="comp-cat-${cat}" 
+                ${isChecked ? 'checked' : ''} 
+                onchange="toggleComparisonCategory('${cat}')"
+                class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+            <label for="comp-cat-${cat}" class="text-sm text-slate-700 cursor-pointer select-none">${cat}</label>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function toggleComparisonCategory(category) {
+    const selected = new Set(appData.comparisonFilter.categories);
+    if (selected.has(category)) {
+        selected.delete(category);
+    } else {
+        selected.add(category);
+    }
+    appData.comparisonFilter.categories = Array.from(selected);
+    renderComparison(); // Re-render with new filter
+}
+
+function toggleAllComparisonCategories(selectAll) {
+    if (selectAll) {
+        appData.comparisonFilter.categories = [...appData.categories];
+    } else {
+        appData.comparisonFilter.categories = [];
+    }
+    renderComparison();
 }
 
 // --- CATEGORÍAS ---
@@ -362,9 +447,15 @@ function removeTempRow(index) {
     renderTransactionTable(tempTransactions);
 }
 
-function updateMasterCSVStatus(fileName) {
-    const el = document.getElementById('master-csv-status');
-    const btn = document.getElementById('btn-connect-csv');
+function updateMasterCSVStatus(fileName, user) {
+    // If no user specified, default to current (for backward compatibility or generic calls)
+    const targetUser = user || appData.currentUser;
+
+    const el = document.getElementById(`master-csv-status-${targetUser}`);
+    const btn = document.getElementById(`btn-connect-csv-${targetUser}`);
+
+    if (!el || !btn) return; // Safety check
+
     if (fileName) {
         el.innerHTML = `Conectado: <span class="text-green-600 font-bold">${fileName}</span>`;
         btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
@@ -377,5 +468,54 @@ function updateMasterCSVStatus(fileName) {
         `;
     } else {
         el.innerText = "Estado: No conectado";
+        btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        btn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+            </svg>
+            Conectar CSV (${targetUser === 'user1' ? 'User 1' : 'User 2'})
+        `;
+    }
+}
+
+function switchUser(userId) {
+    if (appData.currentUser === userId) return;
+
+    // 1. Save current user state
+    appData.users[appData.currentUser].transactions = appData.transactions;
+
+    // 2. Switch user
+    appData.currentUser = userId;
+
+    // 3. Load new user state
+    appData.transactions = appData.users[userId].transactions;
+    appData.fileHandle = appData.users[userId].fileHandle;
+
+    // 4. Update UI
+    renderUserSwitcher();
+    updateDashboard();
+    renderTransactionTable(appData.transactions); // Refresh table if on import tab
+
+    // Refresh settings status for the new user (file handle is transient, so likely null unless reconnected)
+    // Actually, we don't need to refresh status here because the buttons are static in settings, 
+    // but we should ensure the app knows the file handle is gone if it wasn't saved.
+    // (File handles are lost on reload, but preserved in memory during session. 
+    // Switching users keeps them in memory in appData.users)
+
+    showNotification(`Cambiado a ${userId === 'user1' ? 'User 1' : 'User 2'}`);
+    saveToStorage(); // Persist the user preference
+}
+
+function renderUserSwitcher() {
+    const btn1 = document.getElementById('btn-user1');
+    const btn2 = document.getElementById('btn-user2');
+
+    if (appData.currentUser === 'user1') {
+        btn1.className = "px-3 py-1 rounded bg-white text-blue-800 shadow transition";
+        btn2.className = "px-3 py-1 rounded text-blue-300 hover:text-white transition";
+    } else {
+        btn1.className = "px-3 py-1 rounded text-blue-300 hover:text-white transition";
+        btn2.className = "px-3 py-1 rounded bg-white text-blue-800 shadow transition";
     }
 }
